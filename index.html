@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bốc thăm chia bảng</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F2F7F1;
+    --surface:#FFFFFF;
+    --surface-2:#EAF2EA;
+    --ink:#10241A;
+    --ink-soft:#4B6157;
+    --accent:#1E7A46;
+    --accent-strong:#0F5132;
+    --gold:#B87F1E;
+    --gold-soft:#F4E2B8;
+    --line:#CFE0D3;
+    --danger:#B3432B;
+    --shadow: 0 1px 2px rgba(16,36,26,0.06), 0 8px 24px rgba(16,36,26,0.06);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#081712;
+      --surface:#0E241B;
+      --surface-2:#123023;
+      --ink:#EAF3EC;
+      --ink-soft:#9FC0AC;
+      --accent:#3FB56A;
+      --accent-strong:#2E8C52;
+      --gold:#E4B860;
+      --gold-soft:#3A2E14;
+      --line:#1D3A2A;
+      --danger:#E2694B;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#081712;
+    --surface:#0E241B;
+    --surface-2:#123023;
+    --ink:#EAF3EC;
+    --ink-soft:#9FC0AC;
+    --accent:#3FB56A;
+    --accent-strong:#2E8C52;
+    --gold:#E4B860;
+    --gold-soft:#3A2E14;
+    --line:#1D3A2A;
+    --danger:#E2694B;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    line-height:1.5;
+    min-height:100vh;
+    padding:28px 16px 64px;
+  }
+  .wrap{ max-width:1080px; margin:0 auto; }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:16px; flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  header h1{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:clamp(24px, 4vw, 34px);
+    letter-spacing:0.3px;
+    margin:0 0 4px;
+  }
+  header p{ margin:0; color:var(--ink-soft); font-size:14.5px; }
+  .status-pill{
+    display:inline-flex; align-items:center; gap:7px;
+    padding:7px 14px; border-radius:999px;
+    background:var(--surface); border:1px solid var(--line);
+    font-size:13px; font-weight:600; color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .status-dot{ width:7px; height:7px; border-radius:50%; background:var(--ink-soft); }
+  .status-pill.live .status-dot{ background:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+  .status-pill.live{ color:var(--accent-strong); border-color:color-mix(in srgb, var(--accent) 35%, var(--line)); }
+
+  /* ---------- hero / reveal ---------- */
+  .hero{
+    position:relative;
+    overflow:hidden;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:28px 24px 24px;
+    box-shadow:var(--shadow);
+    margin-bottom:22px;
+    text-align:center;
+  }
+  .hero-progress{
+    font-size:13px; color:var(--ink-soft); font-weight:600;
+    margin-bottom:14px; letter-spacing:0.2px;
+  }
+  .hero-progress b{ color:var(--ink); }
+  .reveal-stage{
+    min-height:118px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:6px;
+    padding:8px 12px 18px;
+  }
+  .reveal-zone-tag{
+    font-size:12.5px; font-weight:700; letter-spacing:0.4px;
+    color:var(--accent-strong);
+    background:var(--surface-2);
+    border:1px solid var(--line);
+    padding:4px 12px; border-radius:999px;
+  }
+  .reveal-name{
+    font-family:'Oswald', sans-serif;
+    font-weight:700;
+    font-size:clamp(26px, 5.2vw, 42px);
+    line-height:1.12;
+    color:var(--ink);
+    max-width:90%;
+  }
+  .reveal-name.gold{ color:var(--gold); }
+  .reveal-sub{ font-size:15px; color:var(--ink-soft); font-weight:500; }
+  .reveal-idle{ font-size:16px; color:var(--ink-soft); }
+  .reveal-name.spin{ animation:flicker .09s linear infinite; }
+  @keyframes flicker{ 0%{opacity:1;} 50%{opacity:0.72;} 100%{opacity:1;} }
+  .reveal-name.announce{ animation:announcePop .55s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes announcePop{
+    0%{ transform:scale(0.55); opacity:0; }
+    55%{ transform:scale(1.1); opacity:1; }
+    100%{ transform:scale(1); opacity:1; }
+  }
+
+  .confetti-layer{ position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+  .confetti-piece{
+    position:absolute; top:-14px; width:8px; height:14px; border-radius:2px; opacity:0.95;
+    animation-name:confettiFall; animation-timing-function:ease-in; animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(230px) rotate(420deg); opacity:0; }
+  }
+
+  .draw-btn{
+    font-family:'Oswald', sans-serif;
+    font-weight:600; font-size:17px; letter-spacing:0.3px;
+    color:#fff; background:var(--accent-strong);
+    border:none; border-radius:10px;
+    padding:14px 30px; cursor:pointer;
+    transition:transform .12s ease, background .15s ease, box-shadow .15s ease;
+    box-shadow:0 6px 18px color-mix(in srgb, var(--accent-strong) 35%, transparent);
+  }
+  .draw-btn:hover:not(:disabled){ transform:translateY(-1px); background:var(--accent); }
+  .draw-btn:active:not(:disabled){ transform:translateY(0); }
+  .draw-btn:disabled{
+    background:var(--surface-2); color:var(--ink-soft);
+    cursor:not-allowed; box-shadow:none;
+  }
+  .viewer-note{
+    margin-top:12px; font-size:13px; color:var(--ink-soft);
+  }
+  .action-row{
+    display:flex; align-items:center; justify-content:center;
+    gap:10px; margin-top:12px; flex-wrap:wrap;
+  }
+  .btn-secondary{
+    font-family:inherit; font-size:13px; font-weight:600; color:var(--ink-soft);
+    background:none; border:1px solid var(--line); border-radius:8px;
+    padding:8px 14px; cursor:pointer; transition:border-color .15s ease, color .15s ease;
+  }
+  .btn-secondary:hover:not(:disabled){ border-color:var(--accent); color:var(--accent-strong); }
+  .btn-secondary.danger:hover:not(:disabled){ border-color:var(--danger); color:var(--danger); }
+  .btn-secondary.armed{
+    border-color:var(--danger); color:#fff; background:var(--danger);
+  }
+  .btn-secondary:disabled{ opacity:0.45; cursor:not-allowed; }
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%, 16px);
+    background:var(--ink); color:var(--bg);
+    font-size:13.5px; font-weight:600;
+    padding:11px 18px; border-radius:10px;
+    box-shadow:var(--shadow);
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
+    max-width:88vw; text-align:center; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); }
+  .toast.error{ background:var(--danger); color:#fff; }
+
+  .panel-head-row{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; margin-bottom:10px;
+  }
+  .panel-head-row h2{ margin:0; }
+  .btn-export{
+    font-family:inherit; font-size:12.5px; font-weight:600;
+    color:var(--accent-strong); background:var(--surface-2);
+    border:1px solid var(--line); border-radius:999px;
+    padding:6px 13px; cursor:pointer; white-space:nowrap;
+    transition:border-color .15s ease;
+  }
+  .btn-export:hover:not(:disabled){ border-color:var(--accent); }
+  .btn-export:disabled{ opacity:0.45; cursor:not-allowed; }
+
+  /* ---------- boards grid ---------- */
+  .boards{
+    display:grid; grid-template-columns:repeat(4, 1fr);
+    gap:14px; margin-bottom:22px;
+  }
+  @media (max-width:820px){ .boards{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:480px){ .boards{ grid-template-columns:1fr; } }
+  .board{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; overflow:hidden; box-shadow:var(--shadow);
+  }
+  .board-head{
+    font-family:'Oswald', sans-serif; font-weight:600; font-size:15px;
+    letter-spacing:0.4px;
+    background:var(--accent-strong); color:#fff;
+    padding:10px 14px;
+  }
+  .board-row{
+    padding:9px 14px; border-top:1px solid var(--line);
+    min-height:52px; display:flex; flex-direction:column; justify-content:center;
+    transition:background .5s ease;
+  }
+  .board-row.filled{ background:var(--surface-2); }
+  .board-row.just-filled{ animation:pop .6s ease; }
+  @keyframes pop{ 0%{ background:var(--gold-soft);} 100%{ background:var(--surface-2);} }
+  .row-zone{ font-size:10.5px; font-weight:700; letter-spacing:0.5px; color:var(--ink-soft); }
+  .row-team{ font-size:14px; font-weight:600; color:var(--ink); margin-top:1px; }
+  .row-team.empty{ color:var(--ink-soft); font-weight:400; }
+
+  /* ---------- lower grid: history + pools ---------- */
+  .lower{
+    display:grid; grid-template-columns:1.3fr 1fr; gap:16px;
+  }
+  @media (max-width:760px){ .lower{ grid-template-columns:1fr; } }
+  .panel{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .panel h2{
+    font-family:'Oswald', sans-serif; font-size:16px; font-weight:600;
+    margin:0 0 10px; letter-spacing:0.2px;
+  }
+  .history-list{
+    list-style:none; margin:0; padding:0;
+    max-height:260px; overflow-y:auto;
+    display:flex; flex-direction:column-reverse; gap:6px;
+  }
+  .history-list li{
+    display:flex; align-items:baseline; gap:8px;
+    font-size:13.5px; padding:7px 9px; border-radius:8px;
+    background:var(--surface-2);
+  }
+  .history-list .h-order{ font-weight:700; color:var(--ink-soft); min-width:20px; }
+  .history-list .h-zone{ color:var(--accent-strong); font-weight:600; }
+  .history-empty{ color:var(--ink-soft); font-size:13.5px; }
+
+  .pool-grid{ display:flex; flex-wrap:wrap; gap:8px; }
+  .pool-chip{
+    display:flex; align-items:center; gap:6px;
+    font-size:13px; font-weight:600;
+    padding:6px 11px; border-radius:999px;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--ink-soft);
+  }
+  .pool-chip .n{ color:var(--ink); font-family:'Oswald',sans-serif; }
+  .pool-chip.done{ opacity:0.5; text-decoration:line-through; }
+
+  details.roster{ margin-top:16px; }
+  details.roster summary{
+    cursor:pointer; font-size:13.5px; font-weight:600; color:var(--accent-strong);
+    padding:4px 0;
+  }
+  .roster-table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+  .roster-table th, .roster-table td{
+    text-align:left; padding:7px 8px; border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  .roster-table th{ color:var(--ink-soft); font-weight:600; font-size:12px; }
+  .roster-hub{ color:var(--ink-soft); font-size:12px; white-space:pre-line; }
+
+  footer{ text-align:center; margin-top:26px; font-size:12.5px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>Bốc thăm chia bảng</h1>
+      <p>4 bảng đấu · 8 khu vực · 24 đội · Owner by Hinh Tran</p>
+    </div>
+    <span class="status-pill live" id="statusPill"><span class="status-dot"></span><span id="statusText">Trực tiếp</span></span>
+  </header>
+
+  <section class="hero" id="heroCard">
+    <div class="hero-progress" id="heroProgress"><b>0</b> / 24 đội đã bốc</div>
+    <div class="reveal-stage" id="revealStage">
+      <div class="reveal-idle">Sẵn sàng bốc thăm — bấm nút bên dưới để bắt đầu.</div>
+    </div>
+    <button class="draw-btn" id="drawBtn">Bốc thăm tiếp theo</button>
+    <div class="action-row">
+      <button class="btn-secondary" id="undoBtn">↺ Hoàn tác lượt gần nhất</button>
+      <button class="btn-secondary danger" id="resetBtn">⟲ Bốc lại từ đầu</button>
+    </div>
+    <div class="viewer-note" id="viewerNote" style="display:none;"></div>
+  </section>
+
+  <section class="boards" id="boards"></section>
+
+  <section class="lower">
+    <div class="panel">
+      <div class="panel-head-row">
+        <h2>Lịch sử bốc thăm</h2>
+        <button class="btn-export" id="exportBtn" disabled>⬇ Xuất Excel</button>
+      </div>
+      <ul class="history-list" id="historyList"></ul>
+    </div>
+    <div class="panel">
+      <h2>Số đội còn lại theo khu vực</h2>
+      <div class="pool-grid" id="poolGrid"></div>
+      <details class="roster">
+        <summary>Xem danh sách 24 đội &amp; Hub</summary>
+        <table class="roster-table">
+          <thead><tr><th>#</th><th>Khu vực</th><th>Đội</th><th>Hub</th></tr></thead>
+          <tbody id="rosterBody"></tbody>
+        </table>
+      </details>
+    </div>
+  </section>
+
+  <footer>Kết quả được lưu trên trình duyệt của bạn.</footer>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var TEAMS = [
+    {id:1,  zone:"Center 1", name:"FC Hòa Hưng",              hub:"51-HCM D10/Hoa Hung Hub"},
+    {id:2,  zone:"Center 1", name:"SCATTER",                  hub:"51-HCM Bay Hien/Tai Thiet Hub\n51-HCM Tan Binh/Tan Son Nhat Hub\n51-HCM Tan Binh/Truong Chinh Hub"},
+    {id:3,  zone:"Center 1", name:"Q3 Flash",                 hub:"51-HCM D10/Truong Son Hub\n51-HCM D3/Ban Co Hub"},
+    {id:4,  zone:"Center 2", name:"C2 - VTB",                 hub:"50-HCM Binh Thanh/VTB Hub"},
+    {id:5,  zone:"Center 2", name:"C2 - P12",                 hub:"51-HCM Binh Thanh/Phuong 12 Hub"},
+    {id:6,  zone:"Center 2", name:"C2 - Phan Huy Ich",        hub:"51-HCM Go Vap/Phan Huy Ich Hub"},
+    {id:7,  zone:"Center 2", name:"C2 - Pham Van Chieu",      hub:"51-HCM Go Vap/Pham Van Chieu Hub"},
+    {id:8,  zone:"Center 3", name:"New Hope FC",              hub:"53-HCM Bulky DC"},
+    {id:9,  zone:"Center 3", name:"Bulky Bình Tân FC",        hub:"53-HCM Bulky 02 DC"},
+    {id:10, zone:"Center 3", name:"SDD 01 FC",                hub:"52-HCM SDD-01 Hub"},
+    {id:11, zone:"Center 3", name:"SDD 02 FC",                hub:"52-HCM SDD-01 Hub"},
+    {id:12, zone:"East",     name:"FC Connect",               hub:"50-HCM D9/Duong Dinh Hoi Hub\n50-HCM D9/Man Thien Hub\n51-HCM D9/Hoang Huu Nam Hub\n51-HCM D9/Phuoc Long B Hub\n51-HCM D9/Tang Nhon Phu B Hub"},
+    {id:13, zone:"East",     name:"FC Binh Chieu",            hub:"51-HCM Thu Duc/Binh Chieu Hub"},
+    {id:14, zone:"East",     name:"FC Linh Trung",            hub:"50-HCM Thu Duc/Linh Trung Hub"},
+    {id:15, zone:"East",     name:"FC Hiep Binh Phuoc",       hub:"50-HCM Thu Duc/Hiep Binh Phuoc Hub"},
+    {id:16, zone:"North",    name:"Đội tinh chất lúa mạch",   hub:"51-HCM Hoc Mon/Nguyen Thi Soc Hub\n51-HCM D12/Nguyen Van Qua hub\n51-HCM Cu Chi/Binh My Hub\n51-HCM Hoc Mon/Xuan Thoi Thuong Hub\n51-HCM D12/Thanh xuan Hub\n51-HCM D12/Dong Hung Thuan Hub"},
+    {id:17, zone:"North",    name:"Đội Tinh Anh",             hub:"50-HCM Go Vap/Quang Trung\n51-HCM Hoc Mon/Xuan Thoi Thuong Hub\n50-HCM Cu Chi Hub"},
+    {id:18, zone:"South",    name:"FC 180",                   hub:"51-HCM D7/Bui Van Ba Hub"},
+    {id:19, zone:"South",    name:"SPX-BC-TT FC",             hub:"50-HCM Binh Chanh/Tan Tuc Hub"},
+    {id:20, zone:"West 1",   name:"Bình Tân Hub Warriors",    hub:"50-HCM Binh Tan Hub\n51-HCM Tan Phu/ Kenh Tan Hoa Hub\n51-HCM Binh Tan/ Binh Hung Hoa B Hub"},
+    {id:21, zone:"West 1",   name:"Vĩnh Lộc A Hub",           hub:"51-HCM Binh Chanh/Vinh Loc A Hub\n51-HCM Binh Chanh/Tan Vinh Loc Hub"},
+    {id:22, zone:"West 1",   name:"FC Vĩnh Lộc",              hub:"50-HCM Binh Chanh/Vinh Loc Hub"},
+    {id:23, zone:"West 2",   name:"HaiZu FC",                 hub:"50-HCM Binh Tan/An Lac Hub"},
+    {id:24, zone:"West 2",   name:"Apex Predator FC",         hub:"54HCM-FM 01 Hub"}
+  ];
+  var TEAM_BY_ID = {};
+  TEAMS.forEach(function(t){ TEAM_BY_ID[t.id] = t; });
+
+  var ZONES = ["East","Center 3","Center 2","Center 1","West 2","West 1","North","South"];
+  var TABLES = {
+    A: ["East","Center 3","Center 2","Center 1","West 2","North"],
+    B: ["East","Center 3","Center 2","Center 1","West 1","South"],
+    C: ["East","Center 3","Center 2","Center 1","West 1","North"],
+    D: ["East","Center 3","Center 2","West 2","West 1","South"]
+  };
+  var TABLE_KEYS = ["A","B","C","D"];
+  var STORAGE_KEY = "boc_tham_state_v1";
+
+  function initialState(){
+    var slots = {};
+    TABLE_KEYS.forEach(function(t){
+      slots[t] = {};
+      TABLES[t].forEach(function(z){ slots[t][z] = null; });
+    });
+    var pools = {};
+    ZONES.forEach(function(z){ pools[z] = []; });
+    TEAMS.forEach(function(team){ pools[team.zone].push(team.id); });
+    return { slots: slots, pools: pools, history: [], drawing: null, finished: false };
+  }
+
+  function loadSavedState(){
+    try {
+      var saved = localStorage.getItem(STORAGE_KEY);
+      if(saved) return JSON.parse(saved);
+    } catch(e){}
+    return initialState();
+  }
+
+  function saveState(){
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch(e){}
+  }
+
+  var state = loadSavedState();
+  var busy = false;
+  var spinTimer = null;
+  var celebratedOrder = state.history ? state.history.length : 0;
+
+  var els = {
+    statusPill: document.getElementById("statusPill"),
+    statusText: document.getElementById("statusText"),
+    heroProgress: document.getElementById("heroProgress"),
+    revealStage: document.getElementById("revealStage"),
+    heroCard: document.getElementById("heroCard"),
+    drawBtn: document.getElementById("drawBtn"),
+    undoBtn: document.getElementById("undoBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    viewerNote: document.getElementById("viewerNote"),
+    boards: document.getElementById("boards"),
+    historyList: document.getElementById("historyList"),
+    poolGrid: document.getElementById("poolGrid"),
+    rosterBody: document.getElementById("rosterBody")
+  };
+
+  function render(){
+    var filledCount = state.history.length;
+    els.heroProgress.innerHTML = "<b>" + filledCount + "</b> / 24 đội đã bốc";
+
+    renderReveal();
+    renderBoards();
+    renderHistory();
+    renderPools();
+
+    var canClick = !state.finished && !state.drawing && !busy;
+    els.drawBtn.disabled = !canClick;
+    els.drawBtn.textContent = state.finished ? "Đã hoàn tất" : (state.drawing ? "Đang bốc…" : "Bốc thăm tiếp theo");
+
+    var canModify = !state.drawing && !busy;
+    els.undoBtn.disabled = !canModify || state.history.length === 0;
+    els.resetBtn.disabled = !canModify || state.history.length === 0;
+    els.exportBtn.disabled = state.history.length === 0;
+  }
+
+  function renderReveal(){
+    if(spinTimer){ clearInterval(spinTimer); spinTimer = null; }
+    if(state.history.length < celebratedOrder) celebratedOrder = state.history.length;
+
+    if(state.drawing){
+      var zone = state.drawing.zone, table = state.drawing.table;
+      els.revealStage.innerHTML =
+        '<div class="reveal-zone-tag">' + zone + ' · Bảng ' + table + '</div>' +
+        '<div class="reveal-name spin" id="spinName">…</div>' +
+        '<div class="reveal-sub">Đang bốc…</div>';
+      var pool = state.pools[zone] || [];
+      var nameEl = document.getElementById("spinName");
+      if(pool.length && nameEl){
+        spinTimer = setInterval(function(){
+          var t = TEAM_BY_ID[pool[Math.floor(Math.random()*pool.length)]];
+          if(t && nameEl) nameEl.textContent = t.name;
+        }, 85);
+      }
+      return;
+    }
+
+    if(state.history.length){
+      var last = state.history[state.history.length - 1];
+      var team = TEAM_BY_ID[last.teamId];
+      var isFresh = last.order > celebratedOrder;
+      var tag = state.finished ? "🏆 Hoàn tất" : last.zone;
+      var sub = state.finished ? "→ Bảng " + last.table + " · Đã bốc đủ 24 đội!" : "→ Bảng " + last.table;
+      els.revealStage.innerHTML =
+        '<div class="reveal-zone-tag">' + tag + '</div>' +
+        '<div class="reveal-name' + (state.finished ? " gold" : "") + (isFresh ? " announce" : "") + '">' +
+          escapeHtml(team ? team.name : "?") +
+        '</div>' +
+        '<div class="reveal-sub">' + sub + '</div>';
+      if(isFresh){
+        celebratedOrder = last.order;
+        fireConfetti(state.finished ? 46 : 24);
+      }
+      return;
+    }
+
+    els.revealStage.innerHTML = '<div class="reveal-idle">Sẵn sàng bốc thăm — bấm nút bên dưới để bắt đầu.</div>';
+  }
+
+  function fireConfetti(count){
+    if(!els.heroCard) return;
+    var layer = document.createElement("div");
+    layer.className = "confetti-layer";
+    var colors = ["#1E7A46", "#3FB56A", "#C8912F", "#E4B860", "#FFFFFF"];
+    for(var i = 0; i < count; i++){
+      var piece = document.createElement("span");
+      piece.className = "confetti-piece";
+      piece.style.left = (Math.random() * 100) + "%";
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDuration = (900 + Math.random() * 700) + "ms";
+      piece.style.animationDelay = (Math.random() * 150) + "ms";
+      piece.style.transform = "rotate(" + Math.floor(Math.random() * 360) + "deg)";
+      layer.appendChild(piece);
+    }
+    els.heroCard.appendChild(layer);
+    setTimeout(function(){
+      if(layer.parentNode) layer.parentNode.removeChild(layer);
+    }, 1900);
+  }
+
+  var lastRenderedFill = {};
+
+  function renderBoards(){
+    var html = "";
+    TABLE_KEYS.forEach(function(t){
+      html += '<div class="board"><div class="board-head">Bảng ' + t + '</div>';
+      TABLES[t].forEach(function(zone){
+        var teamId = state.slots[t][zone];
+        var team = teamId ? TEAM_BY_ID[teamId] : null;
+        var key = t + "|" + zone;
+        var isNew = teamId && lastRenderedFill[key] !== teamId;
+        var cls = "board-row" + (team ? " filled" : "") + (isNew ? " just-filled" : "");
+        html += '<div class="' + cls + '">' +
+                  '<span class="row-zone">' + zone.toUpperCase() + '</span>' +
+                  '<span class="row-team' + (team ? "" : " empty") + '">' + (team ? escapeHtml(team.name) : "···") + '</span>' +
+                '</div>';
+        if(teamId) lastRenderedFill[key] = teamId;
+      });
+      html += '</div>';
+    });
+    els.boards.innerHTML = html;
+  }
+
+  function renderHistory(){
+    if(!state.history.length){
+      els.historyList.innerHTML = '<div class="history-empty">Chưa có lượt bốc nào.</div>';
+      return;
+    }
+    var html = "";
+    state.history.forEach(function(h){
+      var team = TEAM_BY_ID[h.teamId];
+      html += '<li><span class="h-order">#' + h.order + '</span>' +
+              '<span>' + escapeHtml(team ? team.name : "?") +
+              ' <span class="h-zone">(' + h.zone + ')</span> → Bảng ' + h.table + '</span></li>';
+    });
+    els.historyList.innerHTML = html;
+  }
+
+  function renderPools(){
+    var totals = {};
+    ZONES.forEach(function(z){ totals[z] = 0; });
+    TEAMS.forEach(function(t){ totals[t.zone]++; });
+    var html = "";
+    ZONES.forEach(function(z){
+      var remaining = (state.pools[z] || []).length;
+      html += '<span class="pool-chip' + (remaining === 0 ? " done" : "") + '">' + z +
+              ' <span class="n">' + remaining + '/' + totals[z] + '</span></span>';
+    });
+    els.poolGrid.innerHTML = html;
+  }
+
+  function renderRoster(){
+    var html = "";
+    TEAMS.forEach(function(t){
+      html += '<tr><td>' + t.id + '</td><td>' + t.zone + '</td><td>' + escapeHtml(t.name) +
+              '</td><td class="roster-hub">' + escapeHtml(t.hub) + '</td></tr>';
+    });
+    els.rosterBody.innerHTML = html;
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  async function performDraw(){
+    if(busy || state.finished) return;
+    busy = true;
+
+    var pick = pickZoneTableTeam(state);
+    if(!pick){ state.finished = true; busy = false; render(); saveState(); return; }
+
+    state.drawing = { zone: pick.zone, table: pick.table };
+    render();
+
+    await sleep(1200);
+
+    state.pools[pick.zone] = state.pools[pick.zone].filter(function(id){ return id !== pick.teamId; });
+    state.slots[pick.table][pick.zone] = pick.teamId;
+    state.history.push({ order: state.history.length + 1, zone: pick.zone, table: pick.table, teamId: pick.teamId });
+    state.drawing = null;
+    if(state.history.length >= 24) state.finished = true;
+
+    saveState();
+    busy = false;
+    render();
+  }
+
+  async function performUndo(){
+    if(busy || !state.history.length) return;
+    busy = true;
+
+    var last = state.history.pop();
+    state.pools[last.zone].push(last.teamId);
+    state.slots[last.table][last.zone] = null;
+    state.finished = false;
+
+    saveState();
+    showToast("Đã hoàn tác lượt bốc gần nhất.");
+    busy = false;
+    render();
+  }
+
+  var resetArmed = false;
+  var resetArmTimer = null;
+
+  function showToast(msg, isError){
+    var t = document.getElementById("toast");
+    if(!t) return;
+    t.textContent = msg;
+    t.className = "toast show" + (isError ? " error" : "");
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(function(){ t.className = "toast"; }, 3200);
+  }
+
+  function handleResetClick(){
+    if(!resetArmed){
+      resetArmed = true;
+      els.resetBtn.classList.add("armed");
+      els.resetBtn.textContent = "⚠ Bấm lần nữa để xoá toàn bộ";
+      clearTimeout(resetArmTimer);
+      resetArmTimer = setTimeout(disarmReset, 4000);
+      return;
+    }
+    disarmReset();
+    performReset();
+  }
+
+  function disarmReset(){
+    resetArmed = false;
+    clearTimeout(resetArmTimer);
+    els.resetBtn.classList.remove("armed");
+    els.resetBtn.textContent = "⟲ Bốc lại từ đầu";
+  }
+
+  function performReset(){
+    if(busy) return;
+    celebratedOrder = 0;
+    lastRenderedFill = {};
+    state = initialState();
+    saveState();
+    showToast("Đã bốc lại từ đầu.");
+    render();
+  }
+
+  function buildExportSheets(){
+    var byBoard = [["Bảng", "Khu vực", "Đội", "Hub"]];
+    TABLE_KEYS.forEach(function(t){
+      TABLES[t].forEach(function(zone){
+        var teamId = state.slots[t][zone];
+        var team = teamId ? TEAM_BY_ID[teamId] : null;
+        byBoard.push([
+          t, zone,
+          team ? team.name : "Chưa bốc",
+          team ? team.hub.replace(/\n/g, "; ") : ""
+        ]);
+      });
+    });
+    var byOrder = [["STT", "Khu vực", "Đội", "Bảng"]];
+    state.history.forEach(function(h){
+      var team = TEAM_BY_ID[h.teamId];
+      byOrder.push([h.order, h.zone, team ? team.name : "?", h.table]);
+    });
+    return { byBoard: byBoard, byOrder: byOrder };
+  }
+
+  function exportXlsx(){
+    if(typeof XLSX === "undefined"){
+      showToast("Không tải được thư viện xuất Excel. Vui lòng thử lại.", true);
+      return;
+    }
+    var sheets = buildExportSheets();
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheets.byBoard), "Ket qua theo Bang");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheets.byOrder), "Lich su boc tham");
+    
+    // Xuất file tiêu chuẩn trình duyệt
+    XLSX.writeFile(wb, "ket-qua-boc-tham.xlsx");
+  }
+
+  function pickZoneTableTeam(data){
+    var availableZones = ZONES.filter(function(z){ return (data.pools[z] || []).length > 0; });
+    if(!availableZones.length) return null;
+    var zone = availableZones[Math.floor(Math.random() * availableZones.length)];
+    var availableTables = TABLE_KEYS.filter(function(t){
+      return TABLES[t].indexOf(zone) !== -1 && data.slots[t][zone] === null;
+    });
+    var table = availableTables[Math.floor(Math.random() * availableTables.length)];
+    var pool = data.pools[zone];
+    var teamId = pool[Math.floor(Math.random() * pool.length)];
+    return { zone: zone, table: table, teamId: teamId };
+  }
+
+  function init(){
+    renderRoster();
+    render();
+
+    els.drawBtn.addEventListener("click", performDraw);
+    els.undoBtn.addEventListener("click", performUndo);
+    els.resetBtn.addEventListener("click", handleResetClick);
+    els.exportBtn.addEventListener("click", exportXlsx);
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
